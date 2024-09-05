@@ -1,9 +1,12 @@
 import { useGetCasesQuery } from "@/services/CaseApi";
 import { CaretLeftOutlined, CaretRightOutlined } from "@ant-design/icons";
-import { Card, Button, Row, Col } from "antd";
+import { Card, Button, Row, Col, Space } from "antd";
 import { useState } from "react";
-import { ICase as CaseType, ICase } from "@/types";
-import { CaseModal } from "@/components";
+import { ICase as CaseType } from "@/types";
+import { CaseModal, CitationsModal, DisplayCaseSection } from "@/components";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { setCasesMenu, setSelectedCase } from "@/slices/CaseSlice";
+import { useTranslation } from "react-i18next";
 
 const Case = () => {
   const { data: cases } = useGetCasesQuery();
@@ -12,7 +15,14 @@ const Case = () => {
   const [animate, setAnimate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalCase, setModalCase] = useState({} as CaseType);
+  const [isCitationModalOpen, setIsCitationModalOpen] = useState(false);
   const pageSize = 3;
+
+  const { casesMenu } = useAppSelector((state) => state.cases);
+
+  const dispatch = useAppDispatch();
+
+  const { t } = useTranslation();
 
   const handleNext = () => {
     if (cases && current < Math.ceil(cases.length / pageSize)) {
@@ -37,6 +47,13 @@ const Case = () => {
     setIsModalOpen(true);
   };
 
+  const openCitationModal = (cases: CaseType) => {
+    setModalCase(cases);
+    dispatch(setCasesMenu([...casesMenu, cases]));
+    dispatch(setSelectedCase(cases));
+    setIsCitationModalOpen(true);
+  };
+
   let currentPageCases;
 
   if (cases) {
@@ -46,38 +63,11 @@ const Case = () => {
     );
   }
 
-  const DisplayCaseSection = ({ selectedCase }: { selectedCase: ICase }) => {
-    let displaySectionTitle = "";
-    let displaySectionText = "";
-
-    if (selectedCase.judgment && selectedCase.judgment.trim() !== "") {
-      displaySectionTitle = "Judgment: ";
-      displaySectionText = selectedCase.judgment;
-    } else if (selectedCase.facts && selectedCase.facts.trim() !== "") {
-      displaySectionTitle = "Facts: ";
-      displaySectionText = selectedCase.facts;
-    } else if (selectedCase.reasoning && selectedCase.facts.trim() !== "") {
-      displaySectionTitle = "Reasoning: ";
-      displaySectionText = selectedCase.reasoning;
-    } else if (selectedCase.headnotes && selectedCase.headnotes.trim() !== "") {
-      displaySectionTitle = "Headnotes: ";
-      displaySectionText = selectedCase.headnotes;
-    }
-    return (
-      <>
-        <div className="line-clamp-3">
-          <span className="font-bold w-24">{displaySectionTitle}</span>
-          {displaySectionText}
-        </div>
-      </>
-    );
-  };
-
   return (
     <>
       {cases && (
-        <div className=" p-4">
-          <div className="font-semibold">Recommended Cases</div>
+        <div className=" p-4" id="recommended-cases">
+          <div className="font-semibold">{t("recommended-cases")}</div>
           <div className="mt-2 flex">
             <Button
               className="mt-16 mr-2"
@@ -91,24 +81,41 @@ const Case = () => {
                 {currentPageCases?.map((cases) => (
                   <Col
                     key={cases.id}
-                    span={8}
+                    xs={24} // Full width on extra small screens
+                    sm={24} // Half width on small screens
+                    md={24} // One-third width on medium screens
+                    lg={8}
                     className={` ${animate ? animate : ""}`}
                   >
                     <Card
-                      title={`Case Number: ${cases.number}`}
+                      title={`${t("case-number")}: ${cases.number}`}
                       extra={
-                        <Button onClick={() => openCaseModal(cases)}>
-                          More
-                        </Button>
+                        <>
+                          <Space>
+                            <Button onClick={() => openCitationModal(cases)}>
+                              {t("citations")}
+                            </Button>
+                            <Button onClick={() => openCaseModal(cases)}>
+                              {t("more")}
+                            </Button>
+                          </Space>
+                        </>
                       }
                       className="h-48 drop-shadow-md"
                     >
                       <div className="flex">
-                        <div className="font-bold w-24">{"Case Name: "}</div>
+                        <div className="font-bold mr-2">{t("name")}:</div>
                         <div className="line-clamp-1">{cases.caseName}</div>
                         <div className="ml-4">
-                          <span className="font-semibold">Year:</span>
+                          <span className="font-semibold">{t("year")}:</span>
                           <span>{cases.year}</span>
+                        </div>
+                        <div className="ml-4">
+                          <span className="font-semibold">
+                            {t("type")}
+                            {": "}
+                          </span>
+                          <span>{cases.decision_type}</span>
                         </div>
                       </div>
                       <div className="line-clamp-3 mt-1">
@@ -129,11 +136,20 @@ const Case = () => {
           </div>
         </div>
       )}
-      <CaseModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        cases={modalCase}
-      />
+      {isModalOpen && (
+        <CaseModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          cases={modalCase}
+        />
+      )}
+      {isCitationModalOpen && (
+        <CitationsModal
+          cases={modalCase}
+          isOpen={isCitationModalOpen}
+          onClose={() => setIsCitationModalOpen(false)}
+        />
+      )}
     </>
   );
 };

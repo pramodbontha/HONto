@@ -8,7 +8,7 @@ import { ConfigProvider } from "antd";
 import "./utils/i18n";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
+  <React.Fragment>
     <Provider store={store}>
       <ConfigProvider
         theme={{
@@ -20,5 +20,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <App />
       </ConfigProvider>
     </Provider>
-  </React.StrictMode>
+  </React.Fragment>
 );

@@ -1,5 +1,6 @@
 export interface Article {
   id: string;
+  name: string;
   citing_cases: {
     low: number;
     high: number;
@@ -14,6 +15,7 @@ export interface Article {
 
 export interface ArticleFilter {
   searchTerm: string;
+  name: boolean;
   number: boolean;
   text: boolean;
   skip: number;

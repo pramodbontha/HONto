@@ -9,6 +9,8 @@ export interface Reference {
 export interface ReferenceFilter {
   searchTerm: string;
   context: boolean;
+  refCasesArticles: boolean;
+  resources: string[];
   text: boolean;
   skip: number;
   limit: number;

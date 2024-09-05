@@ -1,22 +1,32 @@
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { RootState } from "@/redux/store";
-import { setCases } from "@/slices/CaseSlice";
+import { setCases, setCasesMenu, setSelectedCase } from "@/slices/CaseSlice";
 import { ICase } from "@/types";
 
-import { Button, Card, Col, Pagination, PaginationProps, Row } from "antd";
+import {
+  Button,
+  Card,
+  Col,
+  Pagination,
+  PaginationProps,
+  Row,
+  Space,
+} from "antd";
 import { useState } from "react";
-import { CaseModal } from "@/components";
+import { CaseModal, CitationsModal } from "@/components";
 import { useFilteredCasesMutation } from "@/services/CaseApi";
 import Highlighter from "react-highlight-words";
+import { useTranslation } from "react-i18next";
 
 const FilteredCases = () => {
   const [isCaseModelOpen, setIsCaseModelOpen] = useState(false);
-  const [selectedCase, setSelectedCase] = useState({} as ICase);
+  const [selectedCases, setSelectedCases] = useState({} as ICase);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+  const [isCitationModalOpen, setIsCitationModalOpen] = useState(false);
 
   const [fetchFilteredCases] = useFilteredCasesMutation();
-  const { cases, casesCount } = useAppSelector(
+  const { cases, casesCount, casesMenu } = useAppSelector(
     (state: RootState) => state.cases
   );
 
@@ -24,9 +34,10 @@ const FilteredCases = () => {
 
   const values = useAppSelector((state: RootState) => state.form);
   const dispatch = useAppDispatch();
+  const { t } = useTranslation();
 
   const openCaseModal = (selectedCase: ICase) => {
-    setSelectedCase(selectedCase);
+    setSelectedCases(selectedCase);
     setIsCaseModelOpen(true);
   };
 
@@ -51,11 +62,19 @@ const FilteredCases = () => {
         endYear: values?.caseYear && values?.caseYear[1]?.format("YYYY"),
         skip: (pageNumber - 1) * newPageSize,
         limit: newPageSize,
+        decisionType: values.caseDecision,
       });
       filteredCases && dispatch(setCases(filteredCases));
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const openCitationModal = (cases: ICase) => {
+    setSelectedCases(cases);
+    dispatch(setCasesMenu([...casesMenu, cases]));
+    dispatch(setSelectedCase(cases));
+    setIsCitationModalOpen(true);
   };
 
   const DisplayCaseSection = ({ selectedCase }: { selectedCase: ICase }) => {
@@ -67,28 +86,28 @@ const FilteredCases = () => {
       selectedCase.judgment.trim() !== "" &&
       selectedCase.judgment.includes(searchBar.query)
     ) {
-      displaySectionTitle = "Judgment: ";
+      displaySectionTitle = `${t("judgement")}: `;
       displaySectionText = selectedCase.judgment;
     } else if (
       selectedCase.facts &&
       selectedCase.facts.trim() !== "" &&
       selectedCase.facts.includes(searchBar.query)
     ) {
-      displaySectionTitle = "Facts: ";
+      displaySectionTitle = `${t("facts")}: `;
       displaySectionText = selectedCase.facts;
     } else if (
       selectedCase.reasoning &&
       selectedCase.facts.trim() !== "" &&
       selectedCase.reasoning.includes(searchBar.query)
     ) {
-      displaySectionTitle = "Reasoning: ";
+      displaySectionTitle = `${t("reasoning")}: `;
       displaySectionText = selectedCase.reasoning;
     } else if (
       selectedCase.headnotes &&
       selectedCase.headnotes.trim() !== "" &&
       selectedCase.headnotes.includes(searchBar.query)
     ) {
-      displaySectionTitle = "Headnotes: ";
+      displaySectionTitle = `${t("headnotes")}: `;
       displaySectionText = selectedCase.headnotes;
     }
     return (
@@ -110,7 +129,9 @@ const FilteredCases = () => {
     <>
       <div className="pt-0 pl-4 pr-4">
         <div className="flex justify-between items-center">
-          <div className="font-semibold">Cases Found: {casesCount}</div>
+          <div className="font-semibold">
+            {t("cases-found")}: {casesCount}
+          </div>
 
           <Pagination
             showSizeChanger
@@ -121,23 +142,34 @@ const FilteredCases = () => {
             onShowSizeChange={onChange}
           />
         </div>
-        <div className="mt-2 h-[620px] p-2 overflow-y-auto overflow-x-hidden scrollbar-rounded">
+        <div className="mt-2 h-[660px] p-2 overflow-y-auto overflow-x-hidden scrollbar-rounded">
           <Row gutter={[16, 16]}>
             {cases?.map((cases, index) => (
               <Col key={cases.id + index} span={24}>
                 <Card
-                  title={`Case Number: ${cases.number}`}
+                  title={`${t("case-number")}: ${cases.number}`}
                   extra={
-                    <Button onClick={() => openCaseModal(cases)}>More</Button>
+                    <Space>
+                      <Button onClick={() => openCitationModal(cases)}>
+                        {t("citations")}
+                      </Button>
+                      <Button onClick={() => openCaseModal(cases)}>
+                        {t("more")}
+                      </Button>
+                    </Space>
                   }
                   className="h-44 drop-shadow-md"
                 >
                   <div className="flex">
-                    <div className="font-bold w-24">{"Case Name: "}</div>
-                    <div className="line-clamp-1">{cases.caseName}</div>
+                    <div className="font-bold">{t("name")}:</div>
+                    <div className="ml-2 line-clamp-1">{cases.caseName}</div>
                     <div className="ml-4">
-                      <span className="font-semibold">Year:</span>
+                      <span className="font-semibold">{t("year")}:</span>
                       <span>{cases.year}</span>
+                    </div>
+                    <div className="ml-4">
+                      <span className="font-semibold">{t("type")}: </span>
+                      <span>{cases.decision_type}</span>
                     </div>
                   </div>
                   <div className="line-clamp-3 mt-1">
@@ -158,11 +190,20 @@ const FilteredCases = () => {
           onChange={onChange}
         />
       </div>
-      <CaseModal
-        cases={selectedCase}
-        isOpen={isCaseModelOpen}
-        onClose={() => setIsCaseModelOpen(false)}
-      />
+      {isCaseModelOpen && (
+        <CaseModal
+          cases={selectedCases}
+          isOpen={isCaseModelOpen}
+          onClose={() => setIsCaseModelOpen(false)}
+        />
+      )}
+      {isCitationModalOpen && (
+        <CitationsModal
+          cases={selectedCases}
+          isOpen={isCitationModalOpen}
+          onClose={() => setIsCitationModalOpen(false)}
+        />
+      )}
     </>
   );
 };

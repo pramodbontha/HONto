@@ -1,9 +1,19 @@
 import { useLazyGetSectionsInTocQuery } from "@/services/BookApi";
 import { useLazyGetFilteredReferencesQuery } from "@/services/ReferenceApi";
 import { Book, Reference } from "@/types";
-import { Breadcrumb, Card, Col, Menu, MenuProps, Modal, Row } from "antd";
+import {
+  Breadcrumb,
+  Card,
+  Col,
+  Input,
+  Menu,
+  MenuProps,
+  Modal,
+  Row,
+} from "antd";
 import { useEffect, useState } from "react";
 import Highlighter from "react-highlight-words";
+import { useTranslation } from "react-i18next";
 
 interface BookModalProps {
   book?: Book;
@@ -22,9 +32,13 @@ const BookModal = (props: BookModalProps) => {
   // let { data: sections } = useGetSectionsInTocQuery(book?.id || "");
   const [breadCrumbItems, setBreadCrumbItems] = useState<string[]>([]);
   const [references, setReferences] = useState<Reference[]>([]);
+  const [filteredReferences, setFilteredReferences] = useState<Reference[]>([]);
+
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [getSectionsInToc] = useLazyGetSectionsInTocQuery();
   const [getFilteredReferences] = useLazyGetFilteredReferencesQuery();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const getInitialSections = async () => {
@@ -37,6 +51,7 @@ const BookModal = (props: BookModalProps) => {
         }
         const { data: references } = await getFilteredReferences(initialId);
         references && setReferences(references);
+        references && setFilteredReferences(references);
         setBreadCrumbItems(initialId.split(">"));
       }
     };
@@ -64,6 +79,7 @@ const BookModal = (props: BookModalProps) => {
       sectionQueryPath.trimEnd().trimStart()
     );
     references && setReferences(references);
+    references && setFilteredReferences(references);
     setBreadCrumbItems(sectionQueryPath.split(">"));
     if (updatedSections?.length) {
       setUpdatedSections(updatedSections);
@@ -75,6 +91,22 @@ const BookModal = (props: BookModalProps) => {
   const handleMenuClick: MenuProps["onClick"] = (e) => {
     setSelectedKey(e.key as string);
     updateSections(e.key as string, true, 0);
+  };
+
+  const onSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const searchTerm = e.target.value;
+    if (searchTerm && searchTerm.trim() !== "") {
+      setSearchTerm(searchTerm);
+      const filteredReferences = references.filter(
+        (reference) =>
+          reference.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          reference.context.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredReferences(filteredReferences);
+    } else {
+      setSearchTerm("");
+      setFilteredReferences(references);
+    }
   };
   return (
     <>
@@ -104,8 +136,8 @@ const BookModal = (props: BookModalProps) => {
           )}
           <div className="mt-2 p-2 flex">
             <div className="w-[260px] border-slate-100">
-              <div className="font-bold">Sections</div>
-              <div className="h-[600px] bg-slate-100 ">
+              <div className="font-bold">{t("sections")}</div>
+              <div className="h-[630px] bg-slate-100 ">
                 <div className="w-[230px]  ml-2 p-4 ">
                   {updatedSections.length !== 0 && (
                     <Menu
@@ -119,31 +151,46 @@ const BookModal = (props: BookModalProps) => {
                       ))}
                     </Menu>
                   )}
-                  {updatedSections.length === 0 && "No Further Sections Found"}
+                  {updatedSections.length === 0 && t("no-further-sections")}
                 </div>
               </div>
             </div>
             <div className="w-[1500px] ml-4 ">
-              <div className="font-bold">References</div>
+              <div className="font-bold">{t("references")}</div>
+              <div className="flex items-center justify-between -mt-2">
+                <div className="mt-3 mb-1 flex">
+                  <div className=" bg-gray-200  rounded-full p-1 flex ">
+                    <Input
+                      placeholder={t("search")}
+                      value={searchTerm}
+                      variant="borderless"
+                      onChange={onSearchInputChange}
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="h-[600px] bg-slate-100  border-slate-100 rounded-r-lg overflow-y-auto overflow-x-hidden scrollbar-rounded">
+                {references.length === 0 && (
+                  <div className="p-4">{t("no-references-found")}</div>
+                )}
                 {references.length !== 0 && (
-                  <div className="w-[1480px] ml-2 p-4 ">
+                  <div className=" ml-2 p-4 ">
                     <div className="mt-2">
                       <Row gutter={[16, 16]}>
-                        {references?.map((reference, index) => (
+                        {filteredReferences?.map((reference, index) => (
                           <Col key={reference.id + index} span={24}>
                             <Card
-                              title={reference.id}
+                              title={reference.text}
                               className="h-44 drop-shadow-md"
                             >
                               <div>
                                 <div className="font-bold w-24">
-                                  {"Context: "}
+                                  {t("context")}:
                                 </div>
                                 <div className="line-clamp-3">
                                   <Highlighter
                                     highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
-                                    searchWords={[reference.text]}
+                                    searchWords={[searchTerm]}
                                     autoEscape={true}
                                     textToHighlight={reference.context}
                                   />

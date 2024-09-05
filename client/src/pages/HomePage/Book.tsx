@@ -4,21 +4,16 @@ import { Book as BookType } from "@/types";
 import { CaretLeftOutlined, CaretRightOutlined } from "@ant-design/icons";
 import { Button, Card, Col, Row } from "antd";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const Book = () => {
-  const { data: books, error, isLoading } = useGetBooksQuery();
+  const { data: books } = useGetBooksQuery();
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState({} as BookType);
   const [current, setCurrent] = useState(1);
+  const { t } = useTranslation();
 
   const pageSize = 3;
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-  if (error) {
-    return <div>Error</div>;
-  }
 
   const handleNext = () => {
     if (books && current < Math.ceil(books.length / pageSize)) {
@@ -49,8 +44,8 @@ const Book = () => {
   return (
     <>
       {books && (
-        <div className="p-4">
-          <div className="font-semibold">Recommended Books</div>
+        <div className="p-4" id="recommended-books">
+          <div className="font-semibold">{t("recommended-books")}</div>
           <div className="mt-2 flex">
             <Button
               className="mt-16 mr-2"
@@ -62,13 +57,19 @@ const Book = () => {
             <div style={{ width: "100%" }}>
               <Row gutter={[16, 16]}>
                 {currentPageBooks?.map((book) => (
-                  <Col key={book.id} span={8}>
+                  <Col
+                    key={book.id}
+                    xs={24} // Full width on extra small screens
+                    sm={24} // Half width on small screens
+                    md={24} // One-third width on medium screens
+                    lg={8}
+                  >
                     <Card
                       title={book.id}
                       className=" h-44 drop-shadow-md"
                       extra={
                         <Button onClick={() => openBookModal(book)}>
-                          More
+                          {t("more")}
                         </Button>
                       }
                     >

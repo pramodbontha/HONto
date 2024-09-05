@@ -4,7 +4,7 @@ import {
   HomeOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { Input, Col, Row, Button, Form, message, Badge } from "antd";
+import { Input, Col, Row, Button, Form, Badge } from "antd";
 import FilterModal from "./FilterModal";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,11 @@ import {
   useFilteredArticlesMutation,
 } from "@/services/ArticleApi";
 import { useAppDispatch } from "@/redux/hooks";
-import { setArticleCount, setArticles } from "@/slices/ArticleSlice";
+import {
+  setArticleCount,
+  setArticles,
+  setIsArticleLoading,
+} from "@/slices/ArticleSlice";
 import {
   useFilteredCasesMutation,
   useFilteredCasesCountMutation,
@@ -38,7 +42,8 @@ const SearchBar = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [values, setValues] = useState<any>({});
 
-  const [fetchFilteredArticles] = useFilteredArticlesMutation();
+  const [fetchFilteredArticles, { isLoading: isArticlesLoading }] =
+    useFilteredArticlesMutation();
   const [fetchFilteredCases] = useFilteredCasesMutation();
   const [fetchFilteredArticlesCount] = useFilteredArticlesCountMutation();
   const [fetchFilteredReferences] = useFilteredReferencesWithQueriesMutation();
@@ -60,6 +65,8 @@ const SearchBar = () => {
   //   setIsModalOpen(false);
   // };
 
+  dispatch(setIsArticleLoading(isArticlesLoading));
+
   const handleCancel = () => {
     setIsModalOpen(false);
   };
@@ -70,19 +77,21 @@ const SearchBar = () => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFormFinish = (values: any) => {
-    console.log(values.caseYear);
+    if (values.caseDecision && values.caseDecision.length === 0) {
+      values.caseDecision = undefined;
+    }
+    if (values.referenceResource && values.referenceResource.length === 0) {
+      values.referenceResource = undefined;
+    }
     dispatch(setFormValues(values));
     setValues(values);
   };
 
   const handleSearch = async () => {
-    if (!searchTerm) {
-      messageInfo();
-      return;
-    }
     try {
       const articleFilter = {
         searchTerm,
+        name: values.articleName,
         number: values.articleNumber,
         text: values.articleText,
         skip: 0,
@@ -99,14 +108,17 @@ const SearchBar = () => {
         headnotes: values.caseHeadnotes,
         startYear: values?.caseYear && values?.caseYear[0]?.format("YYYY"),
         endYear: values?.caseYear && values?.caseYear[1]?.format("YYYY"),
+        decisionType: values.caseDecision,
         skip: 0,
         limit: 10,
       };
 
       const referenceFilter = {
         searchTerm,
-        context: values.referenceContext,
+        context: values.tbContextReferences,
         text: values.referenceText,
+        resources: values.referenceResource,
+        refCasesArticles: values.tbRefArtCases,
         skip: 0,
         limit: 10,
       };
@@ -148,10 +160,6 @@ const SearchBar = () => {
     setValues({});
   };
 
-  const messageInfo = () => {
-    message.info("Search term cannot be empty");
-  };
-
   const navigateToHomePage = () => {
     setSearchTerm("");
     navigate("/");
@@ -177,11 +185,18 @@ const SearchBar = () => {
       <Row gutter={6}>
         <Col span={4}>
           <div className="p-1 mr-1 drop-shadow-md flex justify-end">
-            <Button icon={<HomeOutlined />} onClick={navigateToHomePage} />
+            <Button
+              id="first-element"
+              icon={<HomeOutlined />}
+              onClick={navigateToHomePage}
+            />
           </div>
         </Col>
         <Col span={14}>
-          <div className="h-auto bg-white rounded-full p-1 flex drop-shadow-md">
+          <div
+            id="second-element"
+            className="h-auto bg-white rounded-full p-1 flex drop-shadow-md"
+          >
             <Input
               placeholder={t("search")}
               value={searchTerm}
@@ -196,7 +211,7 @@ const SearchBar = () => {
           </div>
         </Col>
         <Col span={4} className="flex">
-          <div className="p-1 drop-shadow-md">
+          <div id="third-element" className="p-1 drop-shadow-md">
             <Badge
               style={{ backgroundColor: "#6b7280" }}
               count={getAppliedFiltersCount()}
@@ -210,7 +225,7 @@ const SearchBar = () => {
               </Button>
             </Badge>
           </div>
-          <div className="p-1 ml-2 drop-shadow-md">
+          <div id="fourth-element" className="p-1 ml-2 drop-shadow-md">
             <Button icon={<DeleteOutlined />} onClick={clearFilters}>
               {t("clear-filters")}
             </Button>

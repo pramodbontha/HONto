@@ -31,6 +31,7 @@ export const getFilteredReferencesWithQueries = async (
     `Searching for references with term: ${referenceFilter.searchTerm}`
   );
   const query = prepareFilterQuery(referenceFilter, false);
+  console.log(query);
   try {
     const result = await session.run(query);
     const references = result.records.map((record) => {
@@ -56,6 +57,22 @@ export const getFilteredReferencesCount = async (
   }
 };
 
+export const getResources = async () => {
+  const session = db.session();
+  try {
+    const result = await session.run(
+      `MATCH (n:Reference) 
+         RETURN DISTINCT n.resource as resources`
+    );
+    const resources = result.records.map((record) => {
+      return record.get("resources");
+    });
+    return resources;
+  } catch (error) {
+    throw error;
+  }
+};
+
 const prepareFilterQuery = (
   referenceFilter: ReferenceFilter,
   isCountQuery: boolean
@@ -65,26 +82,61 @@ const prepareFilterQuery = (
     (value) => value !== undefined
   );
   let query = "MATCH (n:Reference) ";
-  let conditions = [];
+  let conditions: string[] = [];
+  let andConditions = [];
 
-  if (cleanedFilter.context) {
-    conditions.push(
-      `toLower(n.context) CONTAINS toLower('${referenceFilter.searchTerm}')`
-    );
+  const { skip, limit, searchTerm, ...filters } = cleanedFilter;
+
+  const trimmedSearchTerm = referenceFilter.searchTerm?.trim();
+
+  if (!trimmedSearchTerm && _.isEmpty(filters)) {
+    // No search term provided, return the basic query
+    return isCountQuery
+      ? "MATCH (n:Reference) RETURN COUNT(n) AS count"
+      : `MATCH (n:Reference) RETURN n SKIP ${referenceFilter.skip} LIMIT ${referenceFilter.limit}`;
   }
 
-  if (cleanedFilter.text) {
-    conditions.push(
-      `toLower(n.text) CONTAINS toLower('${referenceFilter.searchTerm}')`
+  if (_.isEmpty(filters) && trimmedSearchTerm) {
+    const fieldsToSearch = ["n.resource", "n.text", "n.context"];
+    conditions = _.map(
+      fieldsToSearch,
+      (field) => `toLower(${field}) CONTAINS toLower('${trimmedSearchTerm}')`
     );
+  } else {
+    if (cleanedFilter.refCasesArticles) {
+      query += `OPTIONAL MATCH (n)-[:MENTIONS]->(a:Article) OPTIONAL MATCH (n)-[:MENTIONS]->(c:Case) `;
+    }
+
+    if (cleanedFilter.context) {
+      conditions.push(
+        `toLower(n.context) CONTAINS toLower('${trimmedSearchTerm}')`
+      );
+    }
+
+    if (cleanedFilter.text) {
+      conditions.push(
+        `toLower(n.text) CONTAINS toLower('${trimmedSearchTerm}')`
+      );
+    }
+
+    if (cleanedFilter.resources) {
+      const resourcesCondition = cleanedFilter.resources
+        .map((resource) => `'${resource.toLowerCase()}'`)
+        .join(", ");
+      andConditions.push(
+        `any(res IN [${resourcesCondition}] WHERE toLower(n.resource) = res)`
+      );
+    }
   }
 
   if (conditions.length) {
     query += `WHERE ${conditions.join(" OR ")} `;
+  } else {
+    query += `WHERE toLower(n.context) CONTAINS toLower('${trimmedSearchTerm}') `;
   }
 
-  if (!cleanedFilter.context && !cleanedFilter.text) {
-    query += `WHERE toLower(n.text) CONTAINS toLower('${referenceFilter.searchTerm}')`;
+  if (andConditions.length > 0) {
+    query += `AND ${andConditions.join(" AND ")} `;
   }
 
   if (isCountQuery) {

@@ -3,12 +3,14 @@ import {
   getFilteredReferencesController,
   getFilteredReferencesCountController,
   getFilteredReferencesWithQueriesController,
+  getResourcesController,
 } from "@/controllers";
 
 const router = Router();
 
-router.get("/search", getFilteredReferencesController);
+router.post("/search", getFilteredReferencesController);
 router.post("/filter", getFilteredReferencesWithQueriesController);
 router.post("/count", getFilteredReferencesCountController);
+router.get("/resources", getResourcesController);
 
 export default router;

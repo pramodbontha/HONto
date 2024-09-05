@@ -33,6 +33,7 @@ export interface CaseFilter {
   headnotes: boolean;
   startYear: string;
   endYear: string;
+  decisionType: string[];
   skip: number;
   limit: number;
 }

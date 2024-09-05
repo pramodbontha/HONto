@@ -1,3 +1,5 @@
+import { useGetDecisionTypesQuery } from "@/services/CaseApi";
+import { useGetResourcesQuery } from "@/services/ReferenceApi";
 import {
   Drawer,
   DrawerProps,
@@ -6,6 +8,7 @@ import {
   DatePicker,
   Space,
   Button,
+  Select,
 } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,6 +29,9 @@ const FilterModal = (props: FilterModalProps) => {
   const { form, isDrawerOpen, onClose, onFormFinish, onReset } = props;
   const [placement] = useState<DrawerProps["placement"]>("right");
   const { t } = useTranslation();
+
+  const { data: resources } = useGetResourcesQuery();
+  const { data: decisionTypes } = useGetDecisionTypesQuery();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = (values: any) => {
@@ -65,15 +71,22 @@ const FilterModal = (props: FilterModalProps) => {
           </div>
           <div>
             <div className="p-2">
-              <div className="text-lg font-bold">Articles</div>
-              <div className="text-sm font-semibold p-2">Search in:</div>
+              <div className="text-lg font-bold">{t("articles")}</div>
+              <div className="text-sm font-semibold p-2">{t("search-in")}:</div>
               <div className="ml-6">
+                <Form.Item
+                  className="mb-0"
+                  name="articleName"
+                  valuePropName="checked"
+                >
+                  <Checkbox>Name</Checkbox>
+                </Form.Item>
                 <Form.Item
                   className="mb-0"
                   name="articleNumber"
                   valuePropName="checked"
                 >
-                  <Checkbox>Number</Checkbox>
+                  <Checkbox>{t("number")}</Checkbox>
                 </Form.Item>
                 <Form.Item
                   className="mb-0"
@@ -86,8 +99,8 @@ const FilterModal = (props: FilterModalProps) => {
             </div>
 
             <div className="p-2">
-              <div className="text-lg font-bold">Cases</div>
-              <div className="text-sm font-semibold p-2">Search in:</div>
+              <div className="text-lg font-bold">{t("cases")}</div>
+              <div className="text-sm font-semibold p-2">{t("search-in")}:</div>
               <div className="ml-6">
                 <Form.Item
                   className="mb-0"
@@ -101,38 +114,38 @@ const FilterModal = (props: FilterModalProps) => {
                   name="caseNumber"
                   valuePropName="checked"
                 >
-                  <Checkbox>Number</Checkbox>
+                  <Checkbox>{t("number")}</Checkbox>
                 </Form.Item>
                 <Form.Item
                   className="mb-0"
                   name="caseHeadnotes"
                   valuePropName="checked"
                 >
-                  <Checkbox>Headnotes</Checkbox>
+                  <Checkbox>{t("headnotes")}</Checkbox>
                 </Form.Item>
                 <Form.Item
                   className="mb-0"
                   name="caseFacts"
                   valuePropName="checked"
                 >
-                  <Checkbox>Facts</Checkbox>
+                  <Checkbox>{t("facts")}</Checkbox>
                 </Form.Item>
                 <Form.Item
                   className="mb-0"
                   name="caseJudgement"
                   valuePropName="checked"
                 >
-                  <Checkbox>Judgement</Checkbox>
+                  <Checkbox>{t("judgement")}</Checkbox>
                 </Form.Item>
                 <Form.Item
                   className="mb-0"
                   name="caseReasoning"
                   valuePropName="checked"
                 >
-                  <Checkbox>Reasoning</Checkbox>
+                  <Checkbox>{t("reasoning")}</Checkbox>
                 </Form.Item>
               </div>
-              <div className="text-sm font-semibold p-2">Filter by:</div>
+              <div className="text-sm font-semibold p-2">{t("filter-by")}:</div>
               <div className="ml-6">
                 <Form.Item className="mb-1" name="caseYear">
                   <RangePicker picker="year" />
@@ -140,42 +153,58 @@ const FilterModal = (props: FilterModalProps) => {
                 <Form.Item
                   className="mb-0"
                   name="caseDecision"
-                  valuePropName="checked"
+                  label={t("decision")}
+                  labelCol={{ span: 24 }}
+                  wrapperCol={{ span: 24 }}
                 >
-                  <Checkbox>Decision</Checkbox>
+                  <Select
+                    className="-mt-2"
+                    mode="multiple"
+                    options={decisionTypes?.map((decisionType) => ({
+                      label: decisionType,
+                      value: decisionType,
+                    }))}
+                  />
                 </Form.Item>
               </div>
             </div>
             <div className="p-2">
-              <div className="text-lg font-bold">Textbooks</div>
-              <div className="text-sm font-semibold p-2">Search in:</div>
+              <div className="text-lg font-bold">{t("books")}</div>
+              <div className="text-sm font-semibold p-2">{t("search-in")}:</div>
               <div className="ml-6">
                 <Form.Item
                   className="mb-2"
                   name="tbRefArtCases"
                   valuePropName="checked"
                 >
-                  <Checkbox>References to articles and cases</Checkbox>
+                  <Checkbox>{t("references-to-articles-and-cases")}</Checkbox>
                 </Form.Item>
                 <Form.Item
                   className="mb-2"
                   name="tbContextReferences"
                   valuePropName="checked"
                 >
-                  <Checkbox>Context of the references</Checkbox>
+                  <Checkbox>{t("context-of-the-references")}</Checkbox>
                 </Form.Item>
               </div>
-              <div className="text-sm font-semibold p-2">Filter by:</div>
+              <div className="text-sm font-semibold p-2">{t("filter-by")}:</div>
               <div className="ml-6">
-                <Form.Item className="mb-0" name="GG" valuePropName="checked">
-                  <Checkbox>GG</Checkbox>
-                </Form.Item>
                 <Form.Item
                   className="mb-0"
-                  name="BVerfGE"
+                  name="referenceResource"
+                  label={t("resources")}
                   valuePropName="checked"
+                  labelCol={{ span: 24 }}
+                  wrapperCol={{ span: 24 }}
                 >
-                  <Checkbox>BVerfGE</Checkbox>
+                  <Select
+                    className="-mt-2"
+                    mode="multiple"
+                    options={resources?.map((resource) => ({
+                      label: resource,
+                      value: resource,
+                    }))}
+                  />
                 </Form.Item>
               </div>
             </div>

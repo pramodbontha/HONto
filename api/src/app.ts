@@ -10,6 +10,12 @@ import {
 import cors from "cors";
 
 const app = express();
+
+const corsOptions = {
+  origin:
+    " https://639d-2a02-8109-ba00-8100-b423-65b6-f77a-a9f8.ngrok-free.app", // Replace with your client's origin
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+};
 app.use(cors());
 
 // Log all requests
