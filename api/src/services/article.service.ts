@@ -8,7 +8,7 @@ export const getAllArticles = async () => {
   try {
     const result = await session.run(
       `MATCH (a:Article)-[:IS_NAMED]->(n:Name) RETURN a, n.short AS articleName, elementId(a) AS elementId
-       ORDER BY a.citing_cases DESC  LIMIT 25`
+       ORDER BY a.citing_cases DESC LIMIT 10`
     );
     const articles = result.records.map((record) => {
       const article = record.get("a").properties;

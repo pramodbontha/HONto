@@ -15,4 +15,11 @@ export default defineConfig({
       "@/services": resolve(__dirname, "src/services"),
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+    watch: {
+      usePolling: true,
+    },
+  },
 });
