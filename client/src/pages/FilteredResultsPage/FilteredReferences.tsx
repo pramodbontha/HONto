@@ -75,7 +75,14 @@ const FilteredReferences = () => {
             {references?.map((reference, index) => (
               <Col key={reference.id + index} span={24}>
                 <Card
-                  title={reference.text}
+                  title={
+                    <Highlighter
+                      highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
+                      searchWords={[searchBar.query]}
+                      autoEscape={true}
+                      textToHighlight={reference.text}
+                    />
+                  }
                   extra={
                     <Button onClick={() => openBookModal(reference)}>
                       {t("find-in-book")}
@@ -88,7 +95,7 @@ const FilteredReferences = () => {
                     <div className="line-clamp-3">
                       <Highlighter
                         highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
-                        searchWords={[reference.text, searchBar.query]}
+                        searchWords={[searchBar.query]}
                         autoEscape={true}
                         textToHighlight={reference.context}
                       />

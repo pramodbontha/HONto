@@ -9,18 +9,15 @@ import {
   Input,
 } from "antd";
 import DisplayCaseSection from "../DisplayCaseSection";
-import { ICase } from "@/types";
-import {
-  useCitingCasesMutation,
-  useLazyCitingCasesCountQuery,
-} from "@/services/CaseApi";
+import { CitationsCases, ICase } from "@/types";
+import { useCitingCasesMutation } from "@/services/CaseApi";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { setCitingCases, setCitingCasesCount } from "@/slices/CaseSlice";
+import { setCitingCases } from "@/slices/CaseSlice";
 import { useTranslation } from "react-i18next";
 
 interface CitingCasesProps {
-  citingCases: ICase[];
+  citingCases: CitationsCases;
   caseId?: string;
   addCaseCitations: (cases: ICase) => void;
   openCaseModal: (cases: ICase) => void;
@@ -34,7 +31,6 @@ const CitingCases = (props: CitingCasesProps) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [getCasesCitingCases] = useCitingCasesMutation();
-  const [getCitingCasesCount] = useLazyCitingCasesCountQuery();
 
   const { citingCasesCount } = useAppSelector((state) => state.cases);
   const dispatch = useAppDispatch();
@@ -80,14 +76,6 @@ const CitingCases = (props: CitingCasesProps) => {
       });
 
       citingCases && dispatch(setCitingCases(citingCases));
-
-      const { data: citingCasesCount } = await getCitingCasesCount({
-        caseId: `${caseId}` ?? "1",
-        searchTerm,
-      });
-
-      citingCasesCount !== undefined &&
-        dispatch(setCitingCasesCount(citingCasesCount));
     } catch (error) {
       console.error(error);
     }
@@ -119,6 +107,15 @@ const CitingCases = (props: CitingCasesProps) => {
               onChange={onSearchInputChange}
             />
           </div>
+          {citingCases.total < citingCasesCount && (
+            <div>
+              <div className=" mt-2 ml-2">
+                {`${t("found")} ${citingCases.total} ${t("cases")} ${t(
+                  "of"
+                )} ${citingCasesCount}`}
+              </div>
+            </div>
+          )}
         </div>
         <div>
           {citingCasesCount > 0 && (
@@ -127,7 +124,7 @@ const CitingCases = (props: CitingCasesProps) => {
                 showSizeChanger
                 current={currentPage}
                 pageSize={pageSize}
-                total={citingCasesCount}
+                total={citingCases.total}
                 onChange={onChange}
               />
             </div>
@@ -135,46 +132,54 @@ const CitingCases = (props: CitingCasesProps) => {
         </div>
       </div>
       <div className="h-[560px] mb-2 pr-2 overflow-y-auto overflow-x-hidden scrollbar-rounded">
-        <Row gutter={[16, 16]}>
-          {citingCases?.map((cases, index) => (
-            <Col key={cases.id + index} span={24}>
-              <Card
-                title={`${t("case-number")}: ${cases.number}`}
-                extra={
-                  <Space>
-                    <Button onClick={() => addCaseCitations(cases)}>
-                      {t("citations")}
-                    </Button>
-                    <Button onClick={() => openCaseModal(cases)}>
-                      {t("more")}
-                    </Button>
-                  </Space>
-                }
-                className="h-44 drop-shadow-md"
-              >
-                <div className="flex">
-                  {cases.caseName && (
-                    <>
-                      <div className="font-bold mr-1">{t("name")}:</div>
-                      <div className="line-clamp-1">{cases.caseName}</div>
-                    </>
-                  )}
-                  <div className="ml-4">
-                    <span className="font-semibold">{t("year")}:</span>
-                    <span>{cases.year}</span>
+        {citingCases.cases && citingCases.cases.length === 0 && (
+          <>{"No cases found"}</>
+        )}
+        {citingCases.cases && citingCases.cases.length !== 0 && (
+          <Row gutter={[16, 16]}>
+            {citingCases.cases?.map((cases, index) => (
+              <Col key={cases.id + index} span={24}>
+                <Card
+                  title={`${t("case-number")}: ${cases.number}`}
+                  extra={
+                    <Space>
+                      <Button onClick={() => addCaseCitations(cases)}>
+                        {t("citations")}
+                      </Button>
+                      <Button onClick={() => openCaseModal(cases)}>
+                        {t("more")}
+                      </Button>
+                    </Space>
+                  }
+                  className="h-44 drop-shadow-md"
+                >
+                  <div className="flex">
+                    {cases.caseName && (
+                      <>
+                        <div className="font-bold mr-1">{t("name")}:</div>
+                        <div className="line-clamp-1">{cases.caseName}</div>
+                      </>
+                    )}
+                    <div className="ml-4">
+                      <span className="font-semibold">{t("year")}:</span>
+                      <span>{cases.year}</span>
+                    </div>
+                    <div className="ml-4">
+                      <span className="font-semibold">{t("type")}: </span>
+                      <span>{cases.decision_type}</span>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <span className="font-semibold">{t("type")}: </span>
-                    <span>{cases.decision_type}</span>
+                  <div className="line-clamp-3 mt-1">
+                    <DisplayCaseSection
+                      selectedCase={cases}
+                      searchTerm={searchTerm}
+                    />
                   </div>
-                </div>
-                <div className="line-clamp-3 mt-1">
-                  <DisplayCaseSection selectedCase={cases} />
-                </div>
-              </Card>
-            </Col>
-          ))}
-        </Row>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        )}
       </div>
     </>
   );

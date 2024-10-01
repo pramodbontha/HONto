@@ -337,8 +337,18 @@ const CitationsModal = (props: CitationsModalProps) => {
     dispatch(setArticlesCitingCases([]));
     dispatch(setArticleReferences([]));
     dispatch(setCaseReferences([]));
-    dispatch(setCitedByCases([]));
-    dispatch(setCitingCases([]));
+    dispatch(
+      setCitedByCases({
+        cases: [],
+        total: 0,
+      })
+    );
+    dispatch(
+      setCitingCases({
+        cases: [],
+        total: 0,
+      })
+    );
     dispatch(setArticlesCitingCases([]));
     dispatch(setCasesMenu([]));
   };

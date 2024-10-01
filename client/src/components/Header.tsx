@@ -21,6 +21,7 @@ const Header = () => {
           options={[
             { label: "EN", value: "en" },
             { label: "DE", value: "de" },
+            { label: "PT", value: "pt-PT" },
           ]}
         />
       </div>

@@ -5,13 +5,22 @@ import _ from "lodash";
 export const getFilteredReferences = async (searchTerm: string) => {
   const session = db.session();
   logger.info(`Searching for references with term: ${searchTerm}`);
+  const splitString = searchTerm.split(" > ");
+
+  // Remove the last element
+  splitString.pop();
+
+  // Join the remaining parts back together
+  const nextToc = splitString.join(" > ");
+  console.log(nextToc);
   try {
     const result = await session.run(
       `MATCH (n:Reference) 
          WHERE toLower(n.context) CONTAINS toLower($searchTerm)
          OR n.id = $searchTerm
-         RETURN n LIMIT 100`,
-      { searchTerm }
+          OR toLower(n.next_toc) CONTAINS toLower($nextToc)
+         RETURN n`,
+      { searchTerm, nextToc }
     );
     const books = result.records.map((record) => {
       const book = record.get("n").properties;

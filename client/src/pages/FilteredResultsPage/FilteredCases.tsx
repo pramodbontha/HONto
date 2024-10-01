@@ -12,7 +12,7 @@ import {
   Row,
   Space,
 } from "antd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CaseModal, CitationsModal } from "@/components";
 import { useFilteredCasesMutation } from "@/services/CaseApi";
 import Highlighter from "react-highlight-words";
@@ -78,47 +78,67 @@ const FilteredCases = () => {
   };
 
   const DisplayCaseSection = ({ selectedCase }: { selectedCase: ICase }) => {
-    let displaySectionTitle = "";
-    let displaySectionText = "";
+    const [adjustedText, setAdjustedText] = useState("");
+    const caseProperties = [
+      { title: t("judgement"), text: selectedCase.judgment },
+      { title: t("facts"), text: selectedCase.facts },
+      { title: t("reasoning"), text: selectedCase.reasoning },
+      { title: t("headnotes"), text: selectedCase.headnotes },
+    ];
 
-    if (
-      selectedCase.judgment &&
-      selectedCase.judgment.trim() !== "" &&
-      selectedCase.judgment.includes(searchBar.query)
-    ) {
-      displaySectionTitle = `${t("judgement")}: `;
-      displaySectionText = selectedCase.judgment;
-    } else if (
-      selectedCase.facts &&
-      selectedCase.facts.trim() !== "" &&
-      selectedCase.facts.includes(searchBar.query)
-    ) {
-      displaySectionTitle = `${t("facts")}: `;
-      displaySectionText = selectedCase.facts;
-    } else if (
-      selectedCase.reasoning &&
-      selectedCase.facts.trim() !== "" &&
-      selectedCase.reasoning.includes(searchBar.query)
-    ) {
-      displaySectionTitle = `${t("reasoning")}: `;
-      displaySectionText = selectedCase.reasoning;
-    } else if (
-      selectedCase.headnotes &&
-      selectedCase.headnotes.trim() !== "" &&
-      selectedCase.headnotes.includes(searchBar.query)
-    ) {
-      displaySectionTitle = `${t("headnotes")}: `;
-      displaySectionText = selectedCase.headnotes;
-    }
+    const includesQuery = (text: string | undefined) =>
+      text &&
+      text.trim() !== "" &&
+      text.toLowerCase().includes(searchBar.query.toLowerCase());
+
+    const sectionWithQuery = caseProperties.find(({ text }) =>
+      includesQuery(text)
+    );
+
+    const sectionWithText = caseProperties.find(
+      ({ text }) => text && text.trim() !== ""
+    );
+    const selectedSection = sectionWithQuery || sectionWithText;
+
+    useEffect(() => {
+      if (selectedSection?.text) {
+        const clampLines = 3; // Number of lines to clamp
+        const maxCharsPerLine = 100; // Approximate characters per line, adjust based on design
+        const totalCharsVisible = clampLines * maxCharsPerLine;
+
+        const text = selectedSection.text;
+
+        if (includesQuery(text)) {
+          const searchIndex = text
+            .toLowerCase()
+            .indexOf(searchBar.query.toLowerCase());
+
+          if (searchIndex > totalCharsVisible) {
+            const start = Math.max(
+              0,
+              searchIndex - Math.floor(totalCharsVisible / 2)
+            ); // Adjust to show around search term
+            const end = Math.min(text.length, start + totalCharsVisible);
+            setAdjustedText(`...${text.slice(start, end)}...`); // Adjusted text with ellipsis
+          } else {
+            setAdjustedText(text); // No need to adjust
+          }
+        } else {
+          setAdjustedText(text); // No query match, use full text
+        }
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedSection, searchBar.query]);
+
     return (
       <>
         <div className="line-clamp-3">
-          <span className="font-bold w-24">{displaySectionTitle}</span>
+          <span className="font-bold mr-2">{selectedSection?.title}:</span>
           <Highlighter
             highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
             searchWords={[searchBar.query]}
             autoEscape={true}
-            textToHighlight={displaySectionText}
+            textToHighlight={adjustedText || ""}
           />
         </div>
       </>
@@ -147,7 +167,14 @@ const FilteredCases = () => {
             {cases?.map((cases, index) => (
               <Col key={cases.id + index} span={24}>
                 <Card
-                  title={`${t("case-number")}: ${cases.number}`}
+                  title={
+                    <Highlighter
+                      highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
+                      searchWords={[searchBar.query]}
+                      autoEscape={true}
+                      textToHighlight={`${t("case-number")}: ${cases.number}`}
+                    />
+                  }
                   extra={
                     <Space>
                       <Button onClick={() => openCitationModal(cases)}>
@@ -162,7 +189,14 @@ const FilteredCases = () => {
                 >
                   <div className="flex">
                     <div className="font-bold">{t("name")}:</div>
-                    <div className="ml-2 line-clamp-1">{cases.caseName}</div>
+                    <div className="ml-2 line-clamp-1">
+                      <Highlighter
+                        highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
+                        searchWords={[searchBar.query]}
+                        autoEscape={true}
+                        textToHighlight={cases.caseName}
+                      />
+                    </div>
                     <div className="ml-4">
                       <span className="font-semibold">{t("year")}:</span>
                       <span>{cases.year}</span>

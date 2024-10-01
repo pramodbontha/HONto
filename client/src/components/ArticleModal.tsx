@@ -19,7 +19,14 @@ const ArticleModal = (props: ArticleModalProps) => {
   return (
     <>
       <Modal
-        title={`${t("article-number")}: ${article.number}`}
+        title={
+          <Highlighter
+            highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
+            searchWords={[searchBar.query]}
+            autoEscape={true}
+            textToHighlight={`${t("article-number")}: ${article.number}`}
+          />
+        }
         open={isOpen}
         onOk={onClose}
         onCancel={onClose}
@@ -29,7 +36,14 @@ const ArticleModal = (props: ArticleModalProps) => {
         <div className="h-[520px]">
           <div className="flex">
             <div className="font-bold mr-2">{t("name")}:</div>
-            <div className="line-clamp-1">{article.name}</div>
+            <div className="line-clamp-1">
+              <Highlighter
+                highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
+                searchWords={[searchBar.query]}
+                autoEscape={true}
+                textToHighlight={article.name}
+              />
+            </div>
           </div>
           <Tabs defaultActiveKey="1" className="h-full">
             <Tabs.TabPane tab={t("summary")} key="1" className="h-full">

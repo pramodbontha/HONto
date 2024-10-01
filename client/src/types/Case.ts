@@ -37,3 +37,8 @@ export interface CaseFilter {
   skip: number;
   limit: number;
 }
+
+export interface CitationsCases {
+  cases: ICase[];
+  total: number;
+}

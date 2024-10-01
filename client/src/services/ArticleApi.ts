@@ -19,7 +19,8 @@ interface CaseCitingArticlesFilter {
 export const articleApi = createApi({
   reducerPath: "articlesApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:8000/",
+    baseUrl:
+      "https://2dc5-2a02-8109-ba00-8100-641e-d0e6-124-c4b1.ngrok-free.app/",
   }),
   tagTypes: ["Article"],
   endpoints: (build) => ({

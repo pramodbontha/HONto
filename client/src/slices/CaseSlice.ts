@@ -1,12 +1,12 @@
-import { ICase } from "@/types";
+import { CitationsCases, ICase } from "@/types";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface CaseState {
   cases: ICase[];
   casesCitingArticle: ICase[];
-  citedByCases: ICase[];
+  citedByCases: CitationsCases;
   citedByCasesCount: number;
-  citingCases: ICase[];
+  citingCases: CitationsCases;
   citingCasesCount: number;
   selectedCase: ICase | null;
   casesMenu: ICase[];
@@ -17,9 +17,15 @@ export interface CaseState {
 const initialState: CaseState = {
   cases: [],
   casesCitingArticle: [],
-  citedByCases: [],
+  citedByCases: {
+    cases: [],
+    total: 0,
+  },
   citedByCasesCount: 0,
-  citingCases: [],
+  citingCases: {
+    cases: [],
+    total: 0,
+  },
   citingCasesCount: 0,
   selectedCase: null,
   casesMenu: [],
@@ -48,13 +54,13 @@ const caseSlice = createSlice({
     setSelectedCase: (state, action: PayloadAction<ICase>) => {
       state.selectedCase = action.payload;
     },
-    setCitedByCases: (state, action: PayloadAction<ICase[]>) => {
+    setCitedByCases: (state, action: PayloadAction<CitationsCases>) => {
       state.citedByCases = action.payload;
     },
     setCitedByCasesCount: (state, action: PayloadAction<number>) => {
       state.citedByCasesCount = action.payload;
     },
-    setCitingCases: (state, action: PayloadAction<ICase[]>) => {
+    setCitingCases: (state, action: PayloadAction<CitationsCases>) => {
       state.citingCases = action.payload;
     },
     setCitingCasesCount: (state, action: PayloadAction<number>) => {

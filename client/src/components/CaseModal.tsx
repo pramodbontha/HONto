@@ -7,12 +7,13 @@ import { useTranslation } from "react-i18next";
 
 interface CaseModalProps {
   cases: ICase;
+  citationSearch?: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
 const CaseModal = (props: CaseModalProps) => {
-  const { cases, isOpen, onClose } = props;
+  const { cases, citationSearch, isOpen, onClose } = props;
   const searchBar = useAppSelector((state: RootState) => state.searchBar);
   const { t } = useTranslation();
   return (
@@ -44,7 +45,7 @@ const CaseModal = (props: CaseModalProps) => {
                 <div className="h-[450px] overflow-y-auto overflow-x-hidden scrollbar-rounded">
                   <Highlighter
                     highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
-                    searchWords={[searchBar.query || ""]}
+                    searchWords={[searchBar.query || "", citationSearch || ""]}
                     autoEscape={true}
                     textToHighlight={cases.facts}
                   />
@@ -54,7 +55,7 @@ const CaseModal = (props: CaseModalProps) => {
                 <div className="h-[450px] overflow-y-auto overflow-x-hidden scrollbar-rounded">
                   <Highlighter
                     highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
-                    searchWords={[searchBar.query || ""]}
+                    searchWords={[searchBar.query || "", citationSearch || ""]}
                     autoEscape={true}
                     textToHighlight={cases.judgment}
                   />
@@ -64,7 +65,7 @@ const CaseModal = (props: CaseModalProps) => {
                 <div className="h-[450px] w-auto overflow-y-auto overflow-x-hidden scrollbar-rounded">
                   <Highlighter
                     highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
-                    searchWords={[searchBar.query || ""]}
+                    searchWords={[searchBar.query || "", citationSearch || ""]}
                     autoEscape={true}
                     textToHighlight={cases.reasoning}
                   />
@@ -74,7 +75,7 @@ const CaseModal = (props: CaseModalProps) => {
                 <div className="h-[450px] overflow-y-auto overflow-x-hidden scrollbar-rounded">
                   <Highlighter
                     highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
-                    searchWords={[searchBar.query || ""]}
+                    searchWords={[searchBar.query || "", citationSearch || ""]}
                     autoEscape={true}
                     textToHighlight={cases.headnotes}
                   />

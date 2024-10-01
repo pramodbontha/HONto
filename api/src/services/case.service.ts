@@ -60,35 +60,200 @@ export const getCasesCitingGivenCase = async (
   limit: number
 ) => {
   const session = db.session();
+  const tx = session.beginTransaction(); // Start a transaction
+
   logger.info(`Fetching cases citing case: ${caseId}`);
-  let query = `MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"}) `;
+
+  // Query to calculate total count of cases with names
+  let countQueryWithName = `
+    MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"})
+    MATCH (c)-[:IS_NAMED]->(n:Name) 
+  `;
   if (searchTerm) {
-    query += `WHERE toLower(c.number) CONTAINS toLower('${searchTerm}') 
-    OR toLower(c.judgment) CONTAINS toLower('${searchTerm}') 
-    OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
-    OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
-    OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}') 
-    OR toLower(c.year) CONTAINS toLower('${searchTerm}')
-    OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}') `;
+    countQueryWithName += `
+      WHERE toLower(c.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}')
+      OR toLower(n.short) CONTAINS toLower('${searchTerm}')
+    `;
   }
-  query += `OPTIONAL MATCH (c:Case)-[:IS_NAMED]->(n:Name)`;
+  countQueryWithName += `RETURN count(c) AS totalCountWithName`;
+
+  // Query to calculate total count of cases without names
+  let countQueryWithoutName = `
+    MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"})
+    WHERE NOT (c)-[:IS_NAMED]->() 
+  `;
   if (searchTerm) {
-    query += `WHERE toLower(n.short) CONTAINS toLower('${searchTerm}') `;
+    countQueryWithoutName += `
+      AND (toLower(c.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}'))
+    `;
   }
-  query += `RETURN c, n.short AS caseName, elementId(c) AS elementId SKIP ${skip} LIMIT ${limit}`;
+  countQueryWithoutName += `RETURN count(c) AS totalCountWithoutName`;
+
+  // Query to get paginated results with names
+  let queryWithName = `
+    MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"})
+    MATCH (c)-[:IS_NAMED]->(n:Name) 
+  `;
+  if (searchTerm) {
+    queryWithName += `
+      WHERE toLower(c.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}')
+      OR toLower(n.short) CONTAINS toLower('${searchTerm}')
+    `;
+  }
+  queryWithName += `
+    RETURN c, n.short AS caseName, elementId(c) AS elementId
+    ORDER BY c.citing_cases DESC
+    SKIP ${skip} LIMIT ${limit}
+  `;
+
+  // Query to get paginated results without names
+  let queryWithoutName = `
+    MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"})
+    WHERE NOT (c)-[:IS_NAMED]->() 
+  `;
+  if (searchTerm) {
+    queryWithoutName += `
+      AND (toLower(c.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}'))
+    `;
+  }
+  queryWithoutName += `
+    RETURN c, elementId(c) AS elementId
+    ORDER BY c.citing_cases DESC
+    SKIP ${skip} LIMIT ${limit}
+  `;
+
   try {
-    const result = await session.run(query);
-    const cases = result.records.map((record) => {
+    // Run count queries and paginated queries concurrently
+    const [
+      countWithNameResult,
+      countWithoutNameResult,
+      resultWithName,
+      resultWithoutName,
+    ] = await Promise.all([
+      tx.run(countQueryWithName),
+      tx.run(countQueryWithoutName),
+      tx.run(queryWithName),
+      tx.run(queryWithoutName),
+    ]);
+
+    // Extract the total counts
+    const totalCountWithName =
+      countWithNameResult.records[0].get("totalCountWithName").low || 0;
+    const totalCountWithoutName =
+      countWithoutNameResult.records[0].get("totalCountWithoutName").low || 0;
+
+    // Process cases with names
+    const casesWithName = resultWithName.records.map((record) => {
       const caseg = record.get("c").properties;
       const caseId = record.get("elementId");
       const caseName = record.get("caseName");
       return { ...caseg, id: caseId, caseName };
     });
-    return cases;
+
+    // Process cases without names
+    const casesWithoutName = resultWithoutName.records.map((record) => {
+      const caseg = record.get("c").properties;
+      const caseId = record.get("elementId");
+      return { ...caseg, id: caseId, caseName: null };
+    });
+
+    // Commit the transaction
+    await tx.commit();
+
+    // Combine the cases with and without names
+    const combinedCases = [...casesWithName, ...casesWithoutName];
+
+    // Combine the total counts
+    const totalCount = totalCountWithName + totalCountWithoutName;
+
+    return { cases: combinedCases, total: totalCount };
   } catch (error) {
+    await tx.rollback(); // Rollback in case of error
     throw error;
+  } finally {
+    await session.close(); // Close the session
   }
 };
+
+// export const getCasesCitingGivenCase = async (
+//   caseId: string,
+//   searchTerm: string,
+//   skip: number,
+//   limit: number
+// ) => {
+//   const session = db.session();
+//   logger.info(`Fetching cases citing case: ${caseId}`);
+//   let query = `MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"}) `;
+//   if (searchTerm) {
+//     query += `WHERE toLower(c.number) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.judgment) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.year) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}') `;
+//   }
+//   query += `OPTIONAL MATCH (c:Case)-[:IS_NAMED]->(n:Name) `;
+//   if (searchTerm) {
+//     query += `WHERE toLower(n.short) CONTAINS toLower('${searchTerm}') `;
+//   }
+//   query += `WITH count(c) AS totalCount MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"}) `;
+//   if (searchTerm) {
+//     query += `WHERE toLower(c.number) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.judgment) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.year) CONTAINS toLower('${searchTerm}')
+//     OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}') `;
+//   }
+//   query += `OPTIONAL MATCH (c:Case)-[:IS_NAMED]->(n:Name)`;
+//   if (searchTerm) {
+//     query += `WHERE toLower(n.short) CONTAINS toLower('${searchTerm}') `;
+//   }
+//   query += `RETURN c, n.short AS caseName, elementId(c) AS elementId, totalCount ORDER BY c.citing_cases DESC  SKIP ${skip} LIMIT ${limit}`;
+//   console.log(query);
+//   try {
+//     const result = await session.run(query);
+//     if (result.records.length === 0) {
+//       return { cases: [], total: 0 };
+//     }
+//     const cases = result.records.map((record) => {
+//       const caseg = record.get("c").properties;
+//       const caseId = record.get("elementId");
+//       const caseName = record.get("caseName");
+//       return { ...caseg, id: caseId, caseName };
+//     });
+//     const total = result.records[0].get("totalCount").low || 0;
+//     return { cases, total };
+//   } catch (error) {
+//     throw error;
+//   }
+// };
 
 export const getCasesCitingGivenCaseCount = async (
   caseId: string,
@@ -97,19 +262,7 @@ export const getCasesCitingGivenCaseCount = async (
   const session = db.session();
   logger.info(`Fetching cases citing case: ${caseId}`);
   let query = `MATCH (c:Case)-[:REFERS_TO]->(citedCase:Case {number: "${caseId}"}) `;
-  if (searchTerm) {
-    query += `WHERE toLower(c.number) CONTAINS toLower('${searchTerm}') 
-    OR toLower(c.judgment) CONTAINS toLower('${searchTerm}') 
-    OR toLower(c.facts) CONTAINS toLower('${searchTerm}')
-    OR toLower(c.reasoning) CONTAINS toLower('${searchTerm}')
-    OR toLower(c.headnotes) CONTAINS toLower('${searchTerm}') 
-    OR toLower(c.year) CONTAINS toLower('${searchTerm}')
-    OR toLower(c.decision_type) CONTAINS toLower('${searchTerm}') `;
-  }
   query += `OPTIONAL MATCH (c:Case)-[:IS_NAMED]->(n:Name)`;
-  if (searchTerm) {
-    query += `WHERE toLower(n.short) CONTAINS toLower('${searchTerm}') `;
-  }
   query += `RETURN count(c) AS count`;
   try {
     const result = await session.run(query);
@@ -126,35 +279,181 @@ export const getCaseCitingOtherCases = async (
   limit: number
 ) => {
   const session = db.session();
-  logger.info(`Fetching cases cited by case: ${caseId}`);
-  let query = `MATCH (c:Case {number: "${caseId}"})-[:REFERS_TO]->(citedCase:Case) `;
+  const tx = session.beginTransaction(); // Start a transaction
+
+  logger.info(`Fetching cases citing case: ${caseId}`);
+
+  // Query to calculate total count of cases with names
+  let countQueryWithName = `
+    MATCH (c:Case {number: "${caseId}"})-[:REFERS_TO]->(citedCase:Case)
+    MATCH (citedCase)-[:IS_NAMED]->(n:Name) 
+  `;
   if (searchTerm) {
-    query += `WHERE toLower(citedCase.number) CONTAINS toLower('${searchTerm}') 
-    OR toLower(citedCase.judgment) CONTAINS toLower('${searchTerm}') 
-    OR toLower(citedCase.facts) CONTAINS toLower('${searchTerm}')
-    OR toLower(citedCase.reasoning) CONTAINS toLower('${searchTerm}')
-    OR toLower(citedCase.headnotes) CONTAINS toLower('${searchTerm}') 
-    OR toLower(citedCase.year) CONTAINS toLower('${searchTerm}')
-    OR toLower(citedCase.decision_type) CONTAINS toLower('${searchTerm}') `;
+    countQueryWithName += `
+      WHERE toLower(citedCase.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.decision_type) CONTAINS toLower('${searchTerm}')
+      OR toLower(n.short) CONTAINS toLower('${searchTerm}')
+    `;
   }
-  query += `OPTIONAL MATCH (citedCase)-[:IS_NAMED]->(n:Name)`;
+  countQueryWithName += `RETURN count(citedCase) AS totalCountWithName`;
+
+  // Query to calculate total count of cases without names
+  let countQueryWithoutName = `
+    MATCH (c:Case {number: "${caseId}"})-[:REFERS_TO]->(citedCase:Case) 
+    WHERE NOT (citedCase)-[:IS_NAMED]->() 
+  `;
   if (searchTerm) {
-    query += `WHERE toLower(n.short) CONTAINS toLower('${searchTerm}') `;
+    countQueryWithoutName += `
+      AND (toLower(citedCase.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.decision_type) CONTAINS toLower('${searchTerm}'))
+    `;
   }
-  query += `RETURN citedCase,n.short AS caseName, elementId(citedCase) AS elementId SKIP ${skip} LIMIT ${limit}`;
+  countQueryWithoutName += `RETURN count(citedCase) AS totalCountWithoutName`;
+
+  // Query to get paginated results with names
+  let queryWithName = `
+    MATCH (c:Case {number: "${caseId}"})-[:REFERS_TO]->(citedCase:Case) 
+    MATCH (citedCase)-[:IS_NAMED]->(n:Name) 
+  `;
+  if (searchTerm) {
+    queryWithName += `
+      WHERE toLower(citedCase.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.decision_type) CONTAINS toLower('${searchTerm}')
+      OR toLower(n.short) CONTAINS toLower('${searchTerm}')
+    `;
+  }
+  queryWithName += `
+    RETURN citedCase, n.short AS caseName, elementId(citedCase) AS elementId
+    ORDER BY citedCase.citing_cases DESC
+    SKIP ${skip} LIMIT ${limit}
+  `;
+
+  // Query to get paginated results without names
+  let queryWithoutName = `
+    MATCH (c:Case {number: "${caseId}"})-[:REFERS_TO]->(citedCase:Case) 
+    WHERE NOT (citedCase)-[:IS_NAMED]->() 
+  `;
+  if (searchTerm) {
+    queryWithoutName += `
+      AND (toLower(citedCase.number) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.judgment) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.facts) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.reasoning) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.headnotes) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.year) CONTAINS toLower('${searchTerm}')
+      OR toLower(citedCase.decision_type) CONTAINS toLower('${searchTerm}'))
+    `;
+  }
+  queryWithoutName += `
+    RETURN citedCase, elementId(citedCase) AS elementId
+    ORDER BY citedCase.citing_cases DESC
+    SKIP ${skip} LIMIT ${limit}
+  `;
+
   try {
-    const result = await session.run(query);
-    const cases = result.records.map((record) => {
+    // Run count queries and paginated queries concurrently
+    const [
+      countWithNameResult,
+      countWithoutNameResult,
+      resultWithName,
+      resultWithoutName,
+    ] = await Promise.all([
+      tx.run(countQueryWithName),
+      tx.run(countQueryWithoutName),
+      tx.run(queryWithName),
+      tx.run(queryWithoutName),
+    ]);
+
+    // Extract the total counts
+    const totalCountWithName =
+      countWithNameResult.records[0].get("totalCountWithName").low || 0;
+    const totalCountWithoutName =
+      countWithoutNameResult.records[0].get("totalCountWithoutName").low || 0;
+
+    // Process cases with names
+    const casesWithName = resultWithName.records.map((record) => {
       const caseg = record.get("citedCase").properties;
       const caseId = record.get("elementId");
       const caseName = record.get("caseName");
       return { ...caseg, id: caseId, caseName };
     });
-    return cases;
+
+    // Process cases without names
+    const casesWithoutName = resultWithoutName.records.map((record) => {
+      const caseg = record.get("citedCase").properties;
+      const caseId = record.get("elementId");
+      return { ...caseg, id: caseId, caseName: null };
+    });
+
+    // Commit the transaction
+    await tx.commit();
+
+    // Combine the cases with and without names
+    const combinedCases = [...casesWithName, ...casesWithoutName];
+
+    // Combine the total counts
+    const totalCount = totalCountWithName + totalCountWithoutName;
+
+    return { cases: combinedCases, total: totalCount };
   } catch (error) {
+    await tx.rollback(); // Rollback in case of error
     throw error;
+  } finally {
+    await session.close(); // Close the session
   }
 };
+
+// export const getCaseCitingOtherCases = async (
+//   caseId: string,
+//   searchTerm: string,
+//   skip: number,
+//   limit: number
+// ) => {
+//   const session = db.session();
+//   logger.info(`Fetching cases cited by case: ${caseId}`);
+//   let query = `MATCH (c:Case {number: "${caseId}"})-[:REFERS_TO]->(citedCase:Case) `;
+//   if (searchTerm) {
+//     query += `WHERE toLower(citedCase.number) CONTAINS toLower('${searchTerm}')
+//     OR toLower(citedCase.judgment) CONTAINS toLower('${searchTerm}')
+//     OR toLower(citedCase.facts) CONTAINS toLower('${searchTerm}')
+//     OR toLower(citedCase.reasoning) CONTAINS toLower('${searchTerm}')
+//     OR toLower(citedCase.headnotes) CONTAINS toLower('${searchTerm}')
+//     OR toLower(citedCase.year) CONTAINS toLower('${searchTerm}')
+//     OR toLower(citedCase.decision_type) CONTAINS toLower('${searchTerm}') `;
+//   }
+//   query += `OPTIONAL MATCH (citedCase)-[:IS_NAMED]->(n:Name)`;
+//   if (searchTerm) {
+//     query += `WHERE toLower(n.short) CONTAINS toLower('${searchTerm}') `;
+//   }
+//   query += `RETURN citedCase,n.short AS caseName, elementId(citedCase) AS elementId SKIP ${skip} LIMIT ${limit}`;
+//   try {
+//     const result = await session.run(query);
+//     const cases = result.records.map((record) => {
+//       const caseg = record.get("citedCase").properties;
+//       const caseId = record.get("elementId");
+//       const caseName = record.get("caseName");
+//       return { ...caseg, id: caseId, caseName };
+//     });
+//     return cases;
+//   } catch (error) {
+//     throw error;
+//   }
+// };
 
 export const getCaseCitingOtherCasesCount = async (
   caseId: string,
@@ -163,19 +462,9 @@ export const getCaseCitingOtherCasesCount = async (
   const session = db.session();
   logger.info(`Fetching cases cited by case: ${caseId}`);
   let query = `MATCH (c:Case {number: "${caseId}"})-[:REFERS_TO]->(citedCase:Case) `;
-  if (searchTerm) {
-    query += `WHERE toLower(citedCase.number) CONTAINS toLower('${searchTerm}') 
-    OR toLower(citedCase.judgment) CONTAINS toLower('${searchTerm}') 
-    OR toLower(citedCase.facts) CONTAINS toLower('${searchTerm}')
-    OR toLower(citedCase.reasoning) CONTAINS toLower('${searchTerm}')
-    OR toLower(citedCase.headnotes) CONTAINS toLower('${searchTerm}') 
-    OR toLower(citedCase.year) CONTAINS toLower('${searchTerm}')
-    OR toLower(citedCase.decision_type) CONTAINS toLower('${searchTerm}') `;
-  }
-  query += `OPTIONAL MATCH (citedCase)-[:IS_NAMED]->(n:Name)`;
-  if (searchTerm) {
-    query += `WHERE toLower(n.short) CONTAINS toLower('${searchTerm}') `;
-  }
+
+  query += `OPTIONAL MATCH (citedCase)-[:IS_NAMED]->(n:Name) `;
+
   query += `RETURN count(citedCase) AS count`;
   try {
     const result = await session.run(query);

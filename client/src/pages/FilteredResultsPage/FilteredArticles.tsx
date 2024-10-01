@@ -95,7 +95,16 @@ const FilteredArticles = () => {
               articles?.map((article) => (
                 <Col key={article.id} span={24}>
                   <Card
-                    title={`${t("article-number")}: ${article.number}`}
+                    title={
+                      <Highlighter
+                        highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
+                        searchWords={[searchBar.query]}
+                        autoEscape={true}
+                        textToHighlight={`${t("article-number")}: ${
+                          article.number
+                        }`}
+                      />
+                    }
                     extra={
                       <Space>
                         <Button onClick={() => openCitationModal(article)}>
@@ -110,7 +119,14 @@ const FilteredArticles = () => {
                   >
                     <div className="flex">
                       <div className="font-bold mr-2">{t("name")}:</div>
-                      <div className="line-clamp-1">{article.name}</div>
+                      <div className="line-clamp-1">
+                        <Highlighter
+                          highlightClassName="bg-gray-200 text-black font-bold p-1 rounded-lg"
+                          searchWords={[searchBar.query]}
+                          autoEscape={true}
+                          textToHighlight={article.name}
+                        />
+                      </div>
                     </div>
                     <div className="flex">
                       <div className="line-clamp-3">

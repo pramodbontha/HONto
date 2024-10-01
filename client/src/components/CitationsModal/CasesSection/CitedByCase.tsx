@@ -1,4 +1,4 @@
-import { ICase } from "@/types";
+import { CitationsCases, ICase } from "@/types";
 import {
   Button,
   Card,
@@ -10,17 +10,14 @@ import {
   Space,
 } from "antd";
 import DisplayCaseSection from "../DisplayCaseSection";
-import {
-  useCitedByCasesMutation,
-  useLazyCitedByCasesCountQuery,
-} from "@/services/CaseApi";
+import { useCitedByCasesMutation } from "@/services/CaseApi";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { setCitedByCases, setCitedByCasesCount } from "@/slices/CaseSlice";
+import { setCitedByCases } from "@/slices/CaseSlice";
 import { useTranslation } from "react-i18next";
 
 interface CitedByCaseProps {
-  citedByCases: ICase[];
+  citedByCases: CitationsCases;
   caseId?: string;
   addCaseCitations: (cases: ICase) => void;
   openCaseModal: (cases: ICase) => void;
@@ -34,7 +31,6 @@ const CitedByCase = (props: CitedByCaseProps) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [getCasesCitedByCases] = useCitedByCasesMutation();
-  const [getCitedbyCasesCount] = useLazyCitedByCasesCountQuery();
   const { citedByCasesCount } = useAppSelector((state) => state.cases);
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
@@ -78,14 +74,6 @@ const CitedByCase = (props: CitedByCaseProps) => {
       });
 
       citedByCases && dispatch(setCitedByCases(citedByCases));
-
-      const { data: citedByCasesCount } = await getCitedbyCasesCount({
-        caseId: `${caseId}` ?? "1",
-        searchTerm,
-      });
-
-      citedByCasesCount !== undefined &&
-        dispatch(setCitedByCasesCount(citedByCasesCount));
     } catch (error) {
       console.error(error);
     }
@@ -117,6 +105,15 @@ const CitedByCase = (props: CitedByCaseProps) => {
               onChange={onSearchInputChange}
             />
           </div>
+          {citedByCases.total < citedByCasesCount && (
+            <div>
+              <div className=" mt-2 ml-2">
+                {`${t("found")} ${citedByCases.total} ${t("cases")} ${t(
+                  "of"
+                )} ${citedByCasesCount}`}
+              </div>
+            </div>
+          )}
         </div>
         <div>
           {citedByCasesCount > 0 && (
@@ -125,7 +122,7 @@ const CitedByCase = (props: CitedByCaseProps) => {
                 showSizeChanger
                 current={currentPage}
                 pageSize={pageSize}
-                total={citedByCasesCount}
+                total={citedByCases.total}
                 onChange={onChange}
               />
             </div>
@@ -133,9 +130,12 @@ const CitedByCase = (props: CitedByCaseProps) => {
         </div>
       </div>
       <div className="h-[560px] mb-2 overflow-y-auto overflow-x-hidden scrollbar-rounded">
-        <Row gutter={[16, 16]}>
-          {citedByCases &&
-            citedByCases?.map((cases, index) => (
+        {citedByCases.cases && citedByCases.cases.length === 0 && (
+          <>{"No cases found"}</>
+        )}
+        {citedByCases.cases && citedByCases.cases.length !== 0 && (
+          <Row gutter={[16, 16]}>
+            {citedByCases.cases?.map((cases, index) => (
               <Col key={cases.id + index} span={24}>
                 <Card
                   title={`${t("case-number")}: ${cases.number}`}
@@ -153,27 +153,31 @@ const CitedByCase = (props: CitedByCaseProps) => {
                 >
                   <div className="flex">
                     {cases.caseName && (
-                      <>
-                        <div className="font-bold mr-2">{t("name")}</div>
+                      <div className="flex mr-4">
+                        <div className="font-bold mr-1">{t("name")}: </div>
                         <div className="line-clamp-1">{cases.caseName}</div>
-                      </>
+                      </div>
                     )}
-                    <div className="ml-4">
-                      <span className="font-semibold">{t("year")}:</span>
+                    <div className="mr-4">
+                      <span className="font-semibold mr-1">{t("year")}: </span>
                       <span>{cases.year}</span>
                     </div>
-                    <div className="ml-4">
-                      <span className="font-semibold">{t("type")}: </span>
+                    <div className="mr-4">
+                      <span className="font-semibold mr-1">{t("type")}: </span>
                       <span>{cases.decision_type}</span>
                     </div>
                   </div>
                   <div className="line-clamp-3 mt-1">
-                    <DisplayCaseSection selectedCase={cases} />
+                    <DisplayCaseSection
+                      selectedCase={cases}
+                      searchTerm={searchTerm}
+                    />
                   </div>
                 </Card>
               </Col>
             ))}
-        </Row>
+          </Row>
+        )}
       </div>
     </>
   );

@@ -1,6 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { CaseFilter, ICase } from "@/types";
+import { CaseFilter, CitationsCases, ICase } from "@/types";
 
 interface ArticleCaseFilter {
   articleId: string;
@@ -19,7 +19,8 @@ export interface CitationsCaseFilter {
 export const caseApi = createApi({
   reducerPath: "caseApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:8000/",
+    baseUrl:
+      "https://2dc5-2a02-8109-ba00-8100-641e-d0e6-124-c4b1.ngrok-free.app/",
   }),
   tagTypes: ["Case"],
   endpoints: (build) => ({
@@ -55,7 +56,7 @@ export const caseApi = createApi({
         body: { searchTerm },
       }),
     }),
-    citedByCases: build.mutation<ICase[], CitationsCaseFilter>({
+    citedByCases: build.mutation<CitationsCases, CitationsCaseFilter>({
       query: ({ caseId, searchTerm, skip, limit }) => ({
         url: `cases/${caseId}/citedBy`,
         method: "POST",
@@ -69,7 +70,7 @@ export const caseApi = createApi({
         body: { searchTerm },
       }),
     }),
-    citingCases: build.mutation<ICase[], CitationsCaseFilter>({
+    citingCases: build.mutation<CitationsCases, CitationsCaseFilter>({
       query: ({ caseId, searchTerm, skip, limit }) => ({
         url: `cases/${caseId}/citing`,
         method: "POST",

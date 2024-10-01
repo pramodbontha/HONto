@@ -104,8 +104,10 @@ const Case = () => {
                       className="h-48 drop-shadow-md"
                     >
                       <div className="flex">
-                        <div className="font-bold mr-2">{t("name")}:</div>
-                        <div className="line-clamp-1">{cases.caseName}</div>
+                        <div className="flex max-w-40">
+                          <div className="font-bold mr-2">{t("name")}:</div>
+                          <div className="line-clamp-1">{cases.caseName}</div>
+                        </div>
                         <div className="ml-4">
                           <span className="font-semibold">{t("year")}:</span>
                           <span>{cases.year}</span>
